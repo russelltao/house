@@ -15,16 +15,16 @@ SPIDER_MODULES = ['studyHouse.spiders', 'studyHouse.lianjia_spider']
 NEWSPIDER_MODULE = 'studyHouse.spiders'
 
 COOKIES_ENABLED=False
-DOWNLOAD_DELAY=5
+DOWNLOAD_DELAY=10
 DEFAULT_REQUEST_HEADERS = {
   # 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
   # 'Accept-Language': 'zh-CN,zh;q=0.8',
   'X-Crawlera-Cookies': 'disable'
 }
-CONCURRENT_REQUESTS = 32
-CONCURRENT_REQUESTS_PER_DOMAIN = 32
+CONCURRENT_REQUESTS = 16
+CONCURRENT_REQUESTS_PER_DOMAIN = 16
 AUTOTHROTTLE_ENABLED = False
-DOWNLOAD_TIMEOUT = 600
+DOWNLOAD_TIMEOUT = 300
 
 
 PROXIES = [{'ip_port':'124.88.67.23:80', 'user_pass': ''}]

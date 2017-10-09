@@ -8,31 +8,39 @@ django.setup()
 from hdata.models import SubArea,LjSecondChengjiaoRecord,PullStatus,PullPageStatus
 from django.db.models import Q
 
-hzurls_subarea = []
-startAreas = SubArea.objects.filter(area__city__name='杭州')
-for are in startAreas:
-    url = are.url
-    notfinish = True
-    try:
-        ps = PullStatus.objects.get(subarea=are, type='链家二手成交', end_time=None)
-        allpps = PullPageStatus.objects.filter(~Q(finish_time=None))
-        if len(allpps) == ps.total_pages:
-            notfinish = False
-    except PullStatus.DoesNotExist as e:
-        pass
 
-    if notfinish:
-        url = url.replace('ershoufang','chengjiao')
-        if url[0:4] == 'http':
-            hzurls_subarea.append(url)
-        else:
-            hzurls_subarea.append(are.area.city.url+url)
-
-print (hzurls_subarea)
-class LianjiaChengjiaoSpider(scrapy.Spider):
-    name = "lj_chengjiao"
+class LianjiaChengjiaoPagesSpider(scrapy.Spider):
+    name = "lj_chengjiao_pages"
     allowed_domains = ["lianjia.com"]
-    start_urls = hzurls_subarea
+
+    def __init__(self):
+        hzurls_subarea = []
+        startAreas = SubArea.objects.filter(area__city__name='杭州')
+        for are in startAreas:
+            url = are.url
+            notfinish = True
+            try:
+                ps = PullStatus.objects.get(subarea=are, type='链家二手成交', end_time=None)
+                allpps = PullPageStatus.objects.filter(Q(pull=ps), ~Q(finish_time=None))
+                print('比较', ps, len(allpps))
+                if len(allpps) >= ps.total_pages:
+                    notfinish = False
+                    ps.end_time = datetime.datetime.now()
+                    ps.save()
+            except PullStatus.DoesNotExist as e:
+                pass
+
+            if notfinish:
+                url = url.replace('ershoufang', 'chengjiao')
+                if url[0:4] == 'http':
+                    hzurls_subarea.append(url)
+                else:
+                    hzurls_subarea.append(are.area.city.url + url)
+            else:
+                print('完成', are)
+        print('start_urls个数', len(hzurls_subarea))
+        LianjiaChengjiaoPagesSpider.start_urls = hzurls_subarea
+        super(LianjiaChengjiaoPagesSpider).__init__()
 
     def parseOneItem(self, sel, subarea):
         record = LjSecondChengjiaoRecord()
@@ -53,9 +61,10 @@ class LianjiaChengjiaoSpider(scrapy.Spider):
         record.source = sel.xpath('div[@class="flood"]/div[@class="source"]/text()').extract_first()
         record.unit_price = sel.xpath(
             'div[@class="flood"]/div[@class="unitPrice"]/span/text()').extract_first()
-        print(record.total_price, record.title)
+
         try:
             record.save()
+            print('保存记录',record.total_price, record.title)
             return True
         except Exception as e:
             print(e)
@@ -63,7 +72,8 @@ class LianjiaChengjiaoSpider(scrapy.Spider):
 
     def parseOneResponse(self, subarea, response):
         try:
-            pps = PullPageStatus.objects.get(subarea=subarea, type='链家二手成交', end_time=None)
+            pps = PullPageStatus.objects.get(pull__subarea=subarea,url=response.url,
+                                             finish_time=None)
         except PullPageStatus.DoesNotExist as e:
             print(e)
             raise e
@@ -90,45 +100,53 @@ class LianjiaChengjiaoSpider(scrapy.Spider):
                 if not ps.end_time:
                     ps.end_time = datetime.datetime.now()
                     ps.save()
-                return True
+                    print('完成子区域',subarea,ps)
+                return 1,ps
+            return 0,ps
         except PullStatus.DoesNotExist as e:
             print(e)
-        return False
+            return -1,None
+
+    def isPageFinish(self, url, ps):
+        isFinished = False
+        try:
+            pps = PullPageStatus.objects.get(url=url, pull=ps)
+            if pps.finish_time:
+                print('页面已经完成',pps)
+                isFinished = True
+        except PullPageStatus.DoesNotExist as e:
+            pps = PullPageStatus(url=url, pull=ps).save()
+
+        return isFinished
 
     def parseOverview(self, response):
         self.parseOneResponse(response.meta['subarea'], response)
 
     def parse(self, response):
-        for i in range(len(LianjiaChengjiaoSpider.start_urls)):
-            if LianjiaChengjiaoSpider.start_urls[i] == response.url:
+        for i in range(len(LianjiaChengjiaoPagesSpider.start_urls)):
+            if LianjiaChengjiaoPagesSpider.start_urls[i] == response.url:
                 break
-        print(i, startAreas[i])
+
         myarea = startAreas[i]
 
         pages = response.xpath('//div[@class="page-box house-lst-page-box"]/@page-data').extract_first()
         totalPage = json.loads(pages)['totalPage']
         pageurl = response.xpath('//div[@class="page-box house-lst-page-box"]/@page-url').extract_first()
 
-        if self.isFinish(myarea):
+        res,ps = self.isFinish(myarea)
+        print(i, myarea, '页面isFinish',res, ps)
+        if res == 1:
             return
-        else:
+        elif res == -1:
             ps = PullStatus(subarea=myarea, type='链家二手成交', start_time=datetime.datetime.now(),
                             total_pages=totalPage, )
             ps.save()
         for i in range(totalPage - 1):
             url = myarea.area.city.url + pageurl.replace('{page}', str(i + 2))
-            isFinished = False
-            try:
-                pps = PullPageStatus.objects.get(url=url,pull=ps)
-                if pps.finish_time:
-                    print(pps)
-                    isFinished = True
-            except PullPageStatus.DoesNotExist as e:
-                pps = PullPageStatus(url=url,pull=ps).save()
-            print(url,i,totalPage,isFinished)
+            isFinished = self.isPageFinish(url,ps)
             if not isFinished:
                 yield scrapy.Request(url, callback=self.parseOverview, meta={'subarea':myarea}, )
-
-        self.parseOneResponse(myarea, response,)
+        if not self.isPageFinish(response.url,ps):
+            self.parseOneResponse(myarea, response,)
 
 
