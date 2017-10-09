@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+
+        <title>{% block title %}房价分析{% endblock %}</title>
+
+        <script src="/static/js/jquery-3.2.1.min.js"></script>
+        <script src="/static/js/echarts.min.js"></script>
+        <script src="/static/js/echart_tools.js"></script>
+        {% block extendhead %}{% endblock %}
+        {% load bootstrap3 %}
+        {% bootstrap_javascript %}
+        {% bootstrap_css %}
+        {% load static %}
+
+        <script type="text/javascript">
+
+    </script>
+        <link rel="stylesheet" href="{% static 'django_tables2/themes/paleblue/css/screen.css' %}" />
+    </head>
+    <body>
+
+        <div id="content">
+            {% block content %}{% endblock %}
+        </div>
+
+    </body>
+</html>

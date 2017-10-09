@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %} 总体概览 {% endblock %}
+{% block extendhead %}
+    {% load render_table from django_tables2 %}
+{% endblock %}
+
+{% block content %}
+
+    <div class="row"><h2>{{ apiname }}接口统计</h2></div>
+    <div class="row">
+            <div id="data_count_by_day_chart" style="width: 2000px;height:400px;"></div>
+    </div>
+    <div class="row">
+            <div id="unit_price_by_day_chart" style="width: 2000px;height:400px;"></div>
+    </div>
+    <div class="row">
+            <div id="totalprice_by_day_chart" style="width: 2000px;height:400px;"></div>
+    </div>
+
+    <script>
+        var xAxis = [{% for x in ljcj_cnt_by_dealdate.xAxis %} {{ x }},{% endfor %}];
+        console.log(xAxis);
+        var series = [{% for k,v in ljcj_cnt_by_dealdate.series.items %} {
+                    name: "{{ k }}",
+                    type: 'line',
+            smooth:true,
+                    data: [{% for cc in v %}{{ cc }},{% endfor %}]
+                },{% endfor %}];
+        var legend = [{% for k,v in ljcj_cnt_by_dealdate.series.items %} "{{ k }}",{% endfor %}];
+        create_chart('data_count_by_day_chart', '二手房天交易次数', legend, xAxis, series);
+
+        var xAxis = [{% for x in ljcj_unitprice_by_dealdate.xAxis %} {{ x }},{% endfor %}];
+        console.log(xAxis);
+        var series = [{% for k,v in ljcj_unitprice_by_dealdate.series.items %} {
+                    name: "{{ k }}",
+                    type: 'line',
+            smooth:true,
+                    data: {{ v }}
+                },{% endfor %}];
+        var legend = [{% for k,v in ljcj_unitprice_by_dealdate.series.items %} "{{ k }}",{% endfor %}];
+        create_chart('unit_price_by_day_chart', '二手房日交易均价', legend, xAxis, series);
+
+        var xAxis = [{% for x in ljcj_totalprice_by_dealdate.xAxis %} {{ x }},{% endfor %}];
+        console.log(xAxis);
+        var series = [{% for k,v in ljcj_totalprice_by_dealdate.series.items %} {
+                    name: "{{ k }}",
+                    type: 'line',
+            smooth:true,
+                    data: {{ v }}
+                },{% endfor %}];
+        var legend = [{% for k,v in ljcj_totalprice_by_dealdate.series.items %} "{{ k }}",{% endfor %}];
+        create_chart('totalprice_by_day_chart', '二手房日交易总价', legend, xAxis, series);
+    </script>
+
+{% endblock %}

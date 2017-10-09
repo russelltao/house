@@ -15,7 +15,9 @@ Including another URLconf
 """
 from django.conf.urls import url
 from django.contrib import admin
+from hdata.views import OverviewStatView
 
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
+    url(r'', OverviewStatView.as_view()),
 ]
